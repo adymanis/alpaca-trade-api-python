@@ -12,8 +12,9 @@ class Alpaca:
 
             key = config['Account']['API-Key']
             secret = config['Account']['Secret']
+            url = config['Account']['URL']
 
-        self.api = tradeapi.REST(key, secret, base_url='https://paper-api.alpaca.markets') # or use ENV Vars shown below
+        self.api = tradeapi.REST(key, secret, base_url=url) # or use ENV Vars shown below
         
     def account(self):   
         print(self.api.get_account())
