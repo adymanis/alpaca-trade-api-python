@@ -107,11 +107,19 @@ class Alpaca:
         outdata = []
         for symbol in symbols:
             changes_in_percent = []
+            vol = []
+             #Compile all volumes for a given symbol to array
+            for d in histdata[symbol]:
+                vol.append(d.v)
+            #Remove outliers from Volumes
+            normalizedVols = self.normalize(vol)
+
             for d in histdata[symbol]:
                 #print('Sym ',symbol)
                 #print('Low ',d.l)
                 #print('High' ,d.h)
-                changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
+                if d.v in normalizedVols:
+                    changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
             outdata.append([symbol,round(statistics.mean(changes_in_percent),2)])
 
         return(outdata)
@@ -134,19 +142,19 @@ connect = Alpaca()
 #print(connect.history('AMD','day','7'))
 
 #Volatility Data
-#volatility_7d = connect.volatility(['TSLA','VXRT','AMD','HX','NTN'],'day','10')
-#print(volatility_7d)
+volatility_7d = connect.volatility(['HX'],'day','10')
+print(volatility_7d)
 
 #Avg High/Low num data. 
 #avg_low_7d = connect.avgLow(['AMD'],'day','7')
 #avg_high_7d = connect.avgHigh(['VXRT','TSLA','AMD'],'day','7')
 #avg_vol_7d = connect.avgVol(['VXRT'],'day','5')
-gb = connect.Good_Buy_Price(['PTON','AAL','JPM','UPS','CHWY','FDX','APHA','DIS','MAR','VXRT'],'day','7')
+#gb = connect.Good_Buy_Price(['PTON','AAL','JPM','UPS','CHWY','FDX','APHA','DIS','MAR','VXRT'],'day','7')
 
 #print(avg_low_7d)
 #print(avg_high_7d)
 #print(avg_vol_7d)
-print(gb)
+#print(gb)
 
 
 #-Calc only avg vol days. Calc devation from avg volume  

@@ -1,1 +1,5 @@
 alpaca-trade-api
+json
+statistics
+pandas 
+numpy
