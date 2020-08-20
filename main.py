@@ -3,6 +3,9 @@ import json
 import statistics
 import pandas as pd
 import numpy as np
+from ftplib import FTP
+from io import BytesIO
+import time
 
 class Alpaca:   
     # init method or constructor    
@@ -23,15 +26,46 @@ class Alpaca:
             config = json.load(json_file)
 
         return(config['Tune'])
+
+    def batch(self,iterable, n=1):
+        #Creates batches for data 
+        l = len(iterable)
+        for ndx in range(0, l, n):
+            yield iterable[ndx:min(ndx + n, l)]
         
     def account(self):   
         return(self.api.get_account())
 
+    def get_all_syms_nasdaq(self):   
+        #Pull all symbols directly from NASDAQ FTP
+        data = BytesIO()
+        with FTP(self.getConfig()['Nasdaq_URL']) as ftp: # use context manager to avoid
+            ftp.login()                          # leaving connection open by mistake
+            ftp.retrbinary("RETR /SymbolDirectory/nasdaqlisted.txt", data.write)
+        data.seek(0) # need to go back to the beginning to get content
+        nasdaq_data = data.read().decode() # convert bytes back to string
+        ftp.close()
+
+        n = nasdaq_data.split('\r\n')[1:-2]
+        all_syms_nasdaq = []
+
+        for i in n:
+            s = i.split('|')
+            all_syms_nasdaq.append(s[0])
+
+        return(all_syms_nasdaq)
+
     def lastquote(self,symbol):   
         return(self.api.get_last_quote(symbol))
 
-    def history(self,symbols,timeframe,limit):   
-        return(self.api.get_barset(symbols,timeframe,limit))
+    def history(self,symbols,timeframe,limit):
+        #Create batches for api call of 100 max symbols API only allow ~100 symbols per request so I broke up the requests into batches 
+        hist = {}
+        for b in self.batch(symbols, 200):
+            data = self.api.get_barset(b,timeframe,limit)
+            hist.update(data)
+
+        return(hist)
 
     def avgLow(self,symbols,timeframe,limit):
         #Get average low over period of time
@@ -40,9 +74,10 @@ class Alpaca:
 
         for symbol in symbols:
             lows = []
-            for d in histdata[symbol]:
-                lows.append(d.l)
-            outdata.update({symbol:round(statistics.mean(lows),2)})
+            if len(histdata[symbol]) >= limit:
+                for d in histdata[symbol]:
+                    lows.append(d.l)
+                outdata.update({symbol:round(statistics.mean(lows),2)})
 
         return(outdata)
 
@@ -53,9 +88,10 @@ class Alpaca:
 
         for symbol in symbols:
             highs = []
-            for d in histdata[symbol]:
-                highs.append(d.h)
-            outdata.update({symbol:round(statistics.mean(highs),2)})
+            if len(histdata[symbol]) >= limit:
+                for d in histdata[symbol]:
+                    highs.append(d.h)
+                outdata.update({symbol:round(statistics.mean(highs),2)})
 
         return(outdata)
 
@@ -66,9 +102,10 @@ class Alpaca:
 
         for symbol in symbols:
             vols = []
-            for d in histdata[symbol]:
-                vols.append(d.v)
-            outdata.update({symbol:round(statistics.mean(vols))})
+            if len(histdata[symbol]) >= limit:
+                for d in histdata[symbol]:
+                    vols.append(d.v)
+                outdata.update({symbol:round(statistics.mean(vols))})
 
         return(outdata)
 
@@ -84,22 +121,51 @@ class Alpaca:
         for symbol in symbols:
             vol = []
             lows = []
-            #Compile all volumes for a given symbol to array
-            for d in histdata[symbol]:
-                vol.append(d.v)
-            #Remove outliers from Volumes
-            normalizedVols = self.normalize(vol)
+            if len(histdata[symbol]) >= limit:
+                #Compile all volumes for a given symbol to array
+                for d in histdata[symbol]:
+                    vol.append(d.v)
+                #Remove outliers from Volumes
+                normalizedVols = self.normalize(vol)
 
-            for d in histdata[symbol]:
-                #If Volume exists in normalized data then use it to cal Average low. 
-                if d.v in normalizedVols:
-                    lows.append(d.l)
-   
-            outdata.append([symbol,round(statistics.mean(lows),2)])
+                for d in histdata[symbol]:
+                    #If Volume exists in normalized data then use it to cal Average low. 
+                    if d.v in normalizedVols:
+                        lows.append(d.l)
+    
+                outdata.append([symbol,round(statistics.mean(lows),2)])
 
         return(outdata)
         
-    def volatility(self,symbols,timeframe,limit):
+    def Good_Sell_Price(self,symbols,timeframe,limit):
+        #This Function uses the following logic
+        #   -Get Average Volume days for given timeframe
+        #   -Normalize Volume for days (This removed days which either really low or high volume)
+        #   -Calculate Average low for days with average volume in given timeframe
+
+        histdata = self.history(symbols,timeframe,limit)
+        outdata = []
+
+        for symbol in symbols:
+            vol = []
+            lows = []
+            if len(histdata[symbol]) >= limit:
+                #Compile all volumes for a given symbol to array
+                for d in histdata[symbol]:
+                    vol.append(d.v)
+                #Remove outliers from Volumes
+                normalizedVols = self.normalize(vol)
+
+                for d in histdata[symbol]:
+                    #If Volume exists in normalized data then use it to cal Average low. 
+                    if d.v in normalizedVols:
+                        lows.append(d.h)
+    
+                outdata.append([symbol,round(statistics.mean(lows),2)])
+
+        return(outdata)
+
+    def Price_volatility(self,symbols,timeframe,limit):
         #get % of flux, high/low based on timeframe and snapshot period
         #ie: show average daily fluctuation in price over 5 days. or do hourly fluctionation over 2 days. 
         #MATH: https://www.skillsyouneed.com/num/percent-change.html
@@ -108,19 +174,20 @@ class Alpaca:
         for symbol in symbols:
             changes_in_percent = []
             vol = []
-             #Compile all volumes for a given symbol to array
-            for d in histdata[symbol]:
-                vol.append(d.v)
-            #Remove outliers from Volumes
-            normalizedVols = self.normalize(vol)
+            if len(histdata[symbol]) >= limit:
+                #Compile all volumes for a given symbol to array
+                for d in histdata[symbol]:
+                    vol.append(d.v)
+                #Remove outliers from Volumes
+                normalizedVols = self.normalize(vol)
 
-            for d in histdata[symbol]:
-                #print('Sym ',symbol)
-                #print('Low ',d.l)
-                #print('High' ,d.h)
-                if d.v in normalizedVols:
-                    changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
-            outdata.append([symbol,round(statistics.mean(changes_in_percent),2)])
+                for d in histdata[symbol]:
+                    #print('Sym ',symbol)
+                    #print('Low ',d.l)
+                    #print('High' ,d.h)
+                    if d.v in normalizedVols:
+                        changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
+                outdata.append([symbol,round(statistics.mean(changes_in_percent),2)])
 
         return(outdata)
 
@@ -134,27 +201,45 @@ class Alpaca:
         not_outlier = distance_from_mean < max_deviations * standard_deviation
         no_outliers = an_array[not_outlier]
         return(no_outliers)
+ 
                 
 #Logic Starts here
 
 connect = Alpaca()
 
-#print(connect.history('AMD','day','7'))
+nasdaq = connect.get_all_syms_nasdaq()
+
+#Get nasdaq Lists
+
+
+#print(connect.history('AMD','day',7))
 
 #Volatility Data
-volatility_7d = connect.volatility(['HX'],'day','10')
-print(volatility_7d)
+#volatility_7d = connect.Price_volatility(nasdaq,'day',7)
+#print(volatility_7d)
 
 #Avg High/Low num data. 
-#avg_low_7d = connect.avgLow(['AMD'],'day','7')
+
 #avg_high_7d = connect.avgHigh(['VXRT','TSLA','AMD'],'day','7')
 #avg_vol_7d = connect.avgVol(['VXRT'],'day','5')
-#gb = connect.Good_Buy_Price(['PTON','AAL','JPM','UPS','CHWY','FDX','APHA','DIS','MAR','VXRT'],'day','7')
 
-#print(avg_low_7d)
+#gb = connect.Good_Buy_Price(['PTON','AAL','JPM','UPS','CHWY','FDX','APHA','DIS','MAR','VXRT'],'day',7)
+#gs = connect.Good_Sell_Price(['PTON','AAL','JPM','UPS','CHWY','FDX','APHA','DIS','MAR','VXRT'],'day',7)
+
 #print(avg_high_7d)
 #print(avg_vol_7d)
 #print(gb)
+#print(gs)
+
+
+#histdata = connect.history(['AMD'],'day','7')
+#print(histdata)
+
+
+#avg_low_7d = connect.avgLow(nasdaq,'day','7')
+#print(len(avg_low_7d))
+
+
 
 
 #-Calc only avg vol days. Calc devation from avg volume  
