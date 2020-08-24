@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 from ftplib import FTP
 from io import BytesIO
-import time
 
 class Alpaca:   
     # init method or constructor    
@@ -61,7 +60,7 @@ class Alpaca:
     def history(self,symbols,timeframe,limit):
         #Create batches for api call of 100 max symbols API only allow ~100 symbols per request so I broke up the requests into batches 
         hist = {}
-        for b in self.batch(symbols, 200):
+        for b in self.batch(symbols, self.getConfig()['API_Batch_Size']):
             data = self.api.get_barset(b,timeframe,limit)
             hist.update(data)
 
@@ -191,6 +190,49 @@ class Alpaca:
 
         return(outdata)
 
+    def Stock_Picker(self,symbols,timeframe,limit):
+        #Pass Large list to this function to do analysis on if stock is a solid buy. 
+        #Checks also mini price based on config threshhold.
+
+        #get % of flux, high/low based on timeframe and snapshot period
+        #ie: show average daily fluctuation in price over 5 days. or do hourly fluctionation over 2 days. 
+        #
+        #MATH: https://www.skillsyouneed.com/num/percent-change.html
+        histdata = self.history(symbols,timeframe,limit)
+        outdata = []
+        for symbol in symbols:
+            changes_in_percent = []
+            vol = []
+
+            #####
+            if len(histdata[symbol]) >= limit:
+
+                #Same logic as avgLow function, I didnt want to hit API again since we already have hist data here. 
+                lows = []
+
+                for d in histdata[symbol]:
+                    lows.append(d.l)
+                calcs = (round(statistics.mean(lows),2))
+                ##########
+                #Set threshold for cheap stocks.. remove penny stocks
+                if calcs > self.getConfig()['Stock_Picker_Min_Price'] :
+                    
+                    #Compile all volumes for a given symbol to array
+                    for d in histdata[symbol]:
+                        vol.append(d.v)
+                    #Remove outliers from Volumes
+                    normalizedVols = self.normalize(vol)
+
+                    for d in histdata[symbol]:
+                        #print('Sym ',symbol)
+                        #print('Low ',d.l)
+                        #print('High' ,d.h)
+                        if d.v in normalizedVols:
+                            changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
+                    outdata.append([symbol,round(statistics.mean(changes_in_percent),2)])
+
+        return(outdata)    
+
     def normalize(self,ar):
         #Function will remove outliers from array. Determins if numbers have deviation if so removes and returns normalized array. 
         an_array = np.array(ar)
@@ -215,8 +257,10 @@ nasdaq = connect.get_all_syms_nasdaq()
 #print(connect.history('AMD','day',7))
 
 #Volatility Data
-#volatility_7d = connect.Price_volatility(nasdaq,'day',7)
-#print(volatility_7d)
+Stock_Picker = connect.Stock_Picker(nasdaq,'day',7)
+
+for v in Stock_Picker:
+    print(str(v).replace("]", "").replace("[", "").replace("'", ""))
 
 #Avg High/Low num data. 
 
@@ -238,6 +282,7 @@ nasdaq = connect.get_all_syms_nasdaq()
 
 #avg_low_7d = connect.avgLow(nasdaq,'day','7')
 #print(len(avg_low_7d))
+
 
 
 
