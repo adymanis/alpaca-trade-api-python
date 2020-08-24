@@ -216,7 +216,7 @@ class Alpaca:
                 ##########
                 #Set threshold for cheap stocks.. remove penny stocks
                 if calcs > self.getConfig()['Stock_Picker_Min_Price'] :
-                    
+
                     #Compile all volumes for a given symbol to array
                     for d in histdata[symbol]:
                         vol.append(d.v)
@@ -229,7 +229,9 @@ class Alpaca:
                         #print('High' ,d.h)
                         if d.v in normalizedVols:
                             changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
-                    outdata.append([symbol,round(statistics.mean(changes_in_percent),2)])
+                    #Append only stocks which have min % in change and volume greate than
+                    if round(statistics.mean(changes_in_percent),2) >= self.getConfig()['Stock_Picker_Min_Perc_Change'] and round(statistics.mean(normalizedVols),2) >= self.getConfig()['Stock_Picker_Min_Vol']:
+                        outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2)])
 
         return(outdata)    
 
@@ -264,7 +266,7 @@ for v in Stock_Picker:
 
 #Avg High/Low num data. 
 
-#avg_high_7d = connect.avgHigh(['VXRT','TSLA','AMD'],'day','7')
+#avg_high_7d = connect.Good_Buy_Price(['BFRA'],'day',5)
 #avg_vol_7d = connect.avgVol(['VXRT'],'day','5')
 
 #gb = connect.Good_Buy_Price(['PTON','AAL','JPM','UPS','CHWY','FDX','APHA','DIS','MAR','VXRT'],'day',7)
@@ -290,3 +292,5 @@ for v in Stock_Picker:
 #-Calc only avg vol days. Calc devation from avg volume  
 #Cal Variation in price $
 #Close sell at end of day if up a tiny amount.
+#Find days with same price and volume check flux
+#Timing of Earnings 
