@@ -10,7 +10,10 @@ Sample config.json|
                 },
           "Tune":
           {
-            "Avg_Vol_Deviation": 1.5
+            "API_Batch_Size": 200,
+            "Avg_Vol_Deviation": 1.5,
+            "Stock_Picker_Min_Price": 2,
+            "Nasdaq_URL": "ftp.nasdaqtrader.com"
           }
         }
             }
