@@ -35,6 +35,33 @@ class Alpaca:
     def account(self):   
         return(self.api.get_account())
 
+    def get_all_syms(self):
+        #All Syms
+        nasdaq = self.get_all_syms_nasdaq()
+        nyse = self.get_all_syms_nyse()
+        all = nasdaq + nyse
+        return(all)
+
+    def get_all_syms_nyse(self):   
+        #Pull all symbols directly from NASDAQ FTP
+        data = BytesIO()
+        with FTP(self.getConfig()['Nasdaq_URL']) as ftp: # use context manager to avoid
+            ftp.login()                          # leaving connection open by mistake
+            ftp.retrbinary("RETR /SymbolDirectory/otherlisted.txt", data.write)
+        data.seek(0) # need to go back to the beginning to get content
+        nyse_data = data.read().decode() # convert bytes back to string
+        ftp.close()
+    
+        n = nyse_data.split('\r\n')[1:-2]
+        all_syms_nyse = []
+
+        for i in n:
+            s = i.split('|')
+            if not "$" in s[0] and not "." in s[0]:
+                all_syms_nyse.append(s[0])
+
+        return(all_syms_nyse)
+
     def get_all_syms_nasdaq(self):   
         #Pull all symbols directly from NASDAQ FTP
         data = BytesIO()
@@ -209,13 +236,18 @@ class Alpaca:
 
                 #Same logic as avgLow function, I didnt want to hit API again since we already have hist data here. 
                 lows = []
-
+                highs = []
+                
                 for d in histdata[symbol]:
                     lows.append(d.l)
-                calcs = (round(statistics.mean(lows),2))
+                lowcalcs = (round(statistics.mean(lows),2))
+
+                for d in histdata[symbol]:
+                    highs.append(d.h)
+                highcalcs = (round(statistics.mean(highs),2))
                 ##########
                 #Set threshold for cheap stocks.. remove penny stocks
-                if calcs > self.getConfig()['Stock_Picker_Min_Price'] :
+                if lowcalcs > self.getConfig()['Stock_Picker_Min_Price'] :
 
                     #Compile all volumes for a given symbol to array
                     for d in histdata[symbol]:
@@ -231,7 +263,7 @@ class Alpaca:
                             changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
                     #Append only stocks which have min % in change and volume greate than
                     if round(statistics.mean(changes_in_percent),2) >= self.getConfig()['Stock_Picker_Min_Perc_Change'] and round(statistics.mean(normalizedVols),2) >= self.getConfig()['Stock_Picker_Min_Vol']:
-                        outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2)])
+                        outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs])
 
         return(outdata)    
 
@@ -252,14 +284,15 @@ class Alpaca:
 connect = Alpaca()
 
 nasdaq = connect.get_all_syms_nasdaq()
-
+nyse = connect.get_all_syms_nyse()
+all = connect.get_all_syms()
 #Get nasdaq Lists
-
 
 #print(connect.history('AMD','day',7))
 
 #Volatility Data
-Stock_Picker = connect.Stock_Picker(nasdaq,'day',7)
+
+Stock_Picker = connect.Stock_Picker(all,'day',7)
 
 for v in Stock_Picker:
     print(str(v).replace("]", "").replace("[", "").replace("'", ""))
