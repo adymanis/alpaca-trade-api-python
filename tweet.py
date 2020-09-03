@@ -1,6 +1,7 @@
 #from twython import TwythonStreamer
 import tweepy
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
 import sqlite3
 import asyncio
 import sys
@@ -8,6 +9,7 @@ import time
 import calendar
 import json
 
+nltk.download('vader_lexicon')
 
 class MyStreamListener(tweepy.StreamListener):
     def get_config(self):
