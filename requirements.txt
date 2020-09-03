@@ -1,5 +1,8 @@
 alpaca-trade-api
-statistics
-pandas 
+statistics 
 numpy
 pyftpclient
+bs4
+nltk
+matplotlib
+spicy
