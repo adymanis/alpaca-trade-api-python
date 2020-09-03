@@ -20,8 +20,9 @@ class MyStreamListener(tweepy.StreamListener):
             consumer_secret = config['Tweet']['consumer_secret']
             access_token = config['Tweet']['access_token']
             access_token_secret = config['Tweet']['access_token_secret']
+            maxTweets = config['Tweet']['maxTweets']
 
-        return({'consumer_key': consumer_key,'consumer_secret': consumer_secret, 'access_token': access_token, 'access_token_secret': access_token_secret })
+        return({'consumer_key': consumer_key,'consumer_secret': consumer_secret, 'access_token': access_token, 'access_token_secret': access_token_secret, 'maxTweets': maxTweets })
     def on_status(self, status):
         #if status.text:
         tweet = status.text
@@ -73,7 +74,7 @@ class MyStreamListener(tweepy.StreamListener):
 
     def get_tweet_hist(self,hashtag):
         tweetsPerQry = 100
-        maxTweets = 1000
+        maxTweets = self.get_config()['maxTweets']
 
         for h in hashtag:
             maxId = -1
