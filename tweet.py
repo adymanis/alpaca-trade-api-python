@@ -22,8 +22,10 @@ class MyStreamListener(tweepy.StreamListener):
             access_token = config['Tweet']['access_token']
             access_token_secret = config['Tweet']['access_token_secret']
             maxTweets = config['Tweet']['maxTweets']
+            influx_server = config['Tweet']['influx_server']
+            influx_db = config['Tweet']['influx_db']
 
-        return({'consumer_key': consumer_key,'consumer_secret': consumer_secret, 'access_token': access_token, 'access_token_secret': access_token_secret, 'maxTweets': maxTweets })
+        return({'consumer_key': consumer_key,'consumer_secret': consumer_secret, 'access_token': access_token, 'access_token_secret': access_token_secret, 'maxTweets': maxTweets,'influx_server': influx_server, "influx_db": influx_db })
     def on_status(self, status):
         #if status.text:
         tweet = status.text
@@ -147,15 +149,16 @@ conn = sqlite3.connect(":memory:")
 #conn = sqlite3.connect('example.db')
 c = conn.cursor()
 
+
 #Connect to Influx
-Influx = InfluxDBClient(config['influx_server'], '8086', '', '',config['inflush_db'] )
-Influx.drop_database(config['inflush_db'])
-Influx.create_database(config['inflush_db'])
+Influx = InfluxDBClient(config['influx_server'], '8086', '', '',config['influx_db'] )
+Influx.drop_database(config['influx_db'])
+Influx.create_database(config['influx_db'])
 
 
 track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JPM','$LOW','$DIS','$OSTK']
 #track = ['$TSLA','$AAPL']
-#track = 'apple,tesla,chewy,carnivalcruise,southwestair'
+
 
 #PreLoad HistData
 myStreamListener.get_tweet_hist(track)
