@@ -8,6 +8,7 @@ import sys
 import time
 import calendar
 import json
+from influxdb import InfluxDBClient
 
 nltk.download('vader_lexicon')
 
@@ -36,6 +37,7 @@ class MyStreamListener(tweepy.StreamListener):
                 if t in tweet:
                     #print("{} Followers: {} Score: {} Time: {}".format(tweet,followers,sentiment_score,timestamp))
                     self.push_to_db(t,timestamp,tweet,sentiment_score,followers)
+                    self.push_to_influx(t,round(int(timestamp)),tweet,sentiment_score,followers)
 
                 #Check if table exists before adding data
                 c.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{}'".format(t.replace("$","")))
@@ -72,6 +74,26 @@ class MyStreamListener(tweepy.StreamListener):
         c.execute("INSERT INTO {} VALUES ('{}','{}','{}','{}','{}')".format(t,timestamp,t,tweet,sentiment_score,followers))
         conn.commit()
 
+    def push_to_influx(self,t,timestamp,tweet,sentiment_score,followers):
+
+        t = t.replace("$","")
+        tweet = tweet.replace("'","")
+
+        json_body = [
+            {
+                "measurement": "sentiment",
+                "tags": {
+                    "ticker": t,
+                },
+                "time": timestamp,
+                "fields": {
+                    "Sentiment": sentiment_score
+                }
+            }
+        ]
+                
+        Influx.write_points(json_body, time_precision='ms')
+
     def get_tweet_hist(self,hashtag):
         tweetsPerQry = 100
         maxTweets = self.get_config()['maxTweets']
@@ -99,6 +121,7 @@ class MyStreamListener(tweepy.StreamListener):
                     followers = 0
 
                     self.push_to_db(h,created_at,text,sentiment_score,followers)
+                    self.push_to_influx(h,created_at,text,sentiment_score,followers)
                     #trainingData.append(tweet_tuple)
 
                 tweetCount += len(newTweets)
@@ -113,14 +136,21 @@ myStreamListener = MyStreamListener()
 
 config = myStreamListener.get_config()
 
+
 #TwitterAuth
 authentication = tweepy.OAuthHandler(config['consumer_key'], config['consumer_secret'])
 authentication.set_access_token(config['access_token'], config['access_token_secret'])
 api = tweepy.API(authentication, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
+#Connect TO DB
 conn = sqlite3.connect(":memory:")
 #conn = sqlite3.connect('example.db')
 c = conn.cursor()
+
+#Connect to Influx
+Influx = InfluxDBClient(config['influx_server'], '8086', '', '',config['inflush_db'] )
+Influx.drop_database(config['inflush_db'])
+Influx.create_database(config['inflush_db'])
 
 
 track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JPM','$LOW','$DIS','$OSTK']
@@ -128,7 +158,7 @@ track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JP
 #track = 'apple,tesla,chewy,carnivalcruise,southwestair'
 
 #PreLoad HistData
-myStreamListener.get_tweet_hist(track)
+#myStreamListener.get_tweet_hist(track)
 
 myStream = tweepy.Stream(auth = api.auth, listener=myStreamListener)
 myStream.filter(track=track)
