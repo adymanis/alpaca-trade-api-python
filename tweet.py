@@ -158,7 +158,7 @@ track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JP
 #track = 'apple,tesla,chewy,carnivalcruise,southwestair'
 
 #PreLoad HistData
-#myStreamListener.get_tweet_hist(track)
+myStreamListener.get_tweet_hist(track)
 
 myStream = tweepy.Stream(auth = api.auth, listener=myStreamListener)
 myStream.filter(track=track)
