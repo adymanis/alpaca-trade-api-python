@@ -16,6 +16,13 @@ Sample config.json|
             "Stock_Picker_Min_Perc_Change": 8,
             "Stock_Picker_Min_Vol": 4000000,
             "Nasdaq_URL": "ftp.nasdaqtrader.com"
+          },
+          "Tweet":
+          {
+            "consumer_key" : "",
+            "consumer_secret" : "",
+            "access_token" : "",
+            "access_token_secret" : ""
           }
         }
             }
