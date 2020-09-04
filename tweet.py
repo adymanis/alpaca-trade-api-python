@@ -28,7 +28,18 @@ class MyStreamListener(tweepy.StreamListener):
         return({'consumer_key': consumer_key,'consumer_secret': consumer_secret, 'access_token': access_token, 'access_token_secret': access_token_secret, 'maxTweets': maxTweets,'influx_server': influx_server, "influx_db": influx_db })
     def on_status(self, status):
         #if status.text:
-        tweet = status.text
+        if 'retweeted_status' in status._json:
+            if 'extended_tweet' in status._json['retweeted_status']:
+                text = 'RT @'+status._json['retweeted_status']['user']['screen_name']+':'+status._json['retweeted_status']['extended_tweet']['full_text']
+            else:
+                text = 'RT @'+status._json['retweeted_status']['user']['screen_name']+':' +status._json['retweeted_status']['text']
+        else:
+            if 'extended_tweet' in status._json:
+                text = status._json['extended_tweet']['full_text']
+            else:
+                text = status.text
+
+        tweet = text
         followers = status.user.followers_count
         timestamp = status.timestamp_ms
         sentiment_score = self.get_sentiment_score(tweet) 
@@ -107,10 +118,10 @@ class MyStreamListener(tweepy.StreamListener):
             while tweetCount < maxTweets:
 
                 if (maxId < 0):
-                    newTweets = api.search(q=h, count=tweetsPerQry, result_type="recent", tweet_mode="extended")
+                    newTweets = api.search(q=h, count=tweetsPerQry, result_type="recent", tweet_mode="extended",languages=["en"])
                 else:
                     newTweets = api.search(q=h, count=tweetsPerQry, max_id=str(maxId - 1), result_type="recent",
-                                        tweet_mode="extended")
+                                        tweet_mode="extended",languages=["en"])
 
                 if not newTweets:
                     print("Aint no tweet anymore....")
@@ -156,14 +167,15 @@ Influx.drop_database(config['influx_db'])
 Influx.create_database(config['influx_db'])
 
 
-track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JPM','$LOW','$DIS','$OSTK']
-#track = ['$TSLA','$AAPL']
+track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JPM','$LOW','$DIS','$OSTK','DOW','NASDAQ','SP500']
+#track = ['$TSLA','$AAPL','DOW','NASDAQ','SP500']
+#track = ['TRUMP']
 
 
 #PreLoad HistData
 myStreamListener.get_tweet_hist(track)
 
-myStream = tweepy.Stream(auth = api.auth, listener=myStreamListener)
+myStream = tweepy.Stream(auth = api.auth, listener=myStreamListener,tweet_mode="extended",languages=["en"])
 myStream.filter(track=track)
 
 #stream.statuses.filter(track=track,language='en',filter_level=None)
