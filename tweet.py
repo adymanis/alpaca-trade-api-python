@@ -1,7 +1,5 @@
 #from twython import TwythonStreamer
 import tweepy
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
-import nltk
 import sqlite3
 import asyncio
 import sys
@@ -9,8 +7,7 @@ import time
 import calendar
 import json
 from influxdb import InfluxDBClient
-
-nltk.download('vader_lexicon')
+from sentiment import Sentiment
 
 class MyStreamListener(tweepy.StreamListener):
     def get_config(self):
@@ -27,6 +24,9 @@ class MyStreamListener(tweepy.StreamListener):
 
         return({'consumer_key': consumer_key,'consumer_secret': consumer_secret, 'access_token': access_token, 'access_token_secret': access_token_secret, 'maxTweets': maxTweets,'influx_server': influx_server, "influx_db": influx_db })
     def on_status(self, status):
+
+        sentiment = Sentiment()
+
         #if status.text:
         if 'retweeted_status' in status._json:
             if 'extended_tweet' in status._json['retweeted_status']:
@@ -42,8 +42,8 @@ class MyStreamListener(tweepy.StreamListener):
         tweet = text
         followers = status.user.followers_count
         timestamp = status.timestamp_ms
-        sentiment_score = self.get_sentiment_score(tweet) 
-        #print(tweet)
+        sentiment_score = sentiment.get_sentiment_score(tweet) 
+        print(sentiment_score)
         #print(data['user']['friends_count'])
         if followers > 0:
             for t in track:
@@ -71,12 +71,6 @@ class MyStreamListener(tweepy.StreamListener):
                     Tweetfreq = "Tweets/Min: " + str(c.fetchone())
                     print(t,avgSent10min,avgSent1HR,avgSent24HR,Tweetfreq)
 
-
-    def get_sentiment_score(self,sentence):      
-        sid_obj = SentimentIntensityAnalyzer() 
-        sentiment_dict = sid_obj.polarity_scores(sentence) 
-        #print(sentiment_dict)
-        return(round(sentiment_dict['compound'],6)) 
 
     def push_to_db(self,t,timestamp,tweet,sentiment_score,followers):
 
@@ -108,6 +102,8 @@ class MyStreamListener(tweepy.StreamListener):
         Influx.write_points(json_body, time_precision='ms')
 
     def get_tweet_hist(self,hashtag):
+        sentiment = Sentiment()
+
         tweetsPerQry = 100
         maxTweets = self.get_config()['maxTweets']
 
@@ -130,7 +126,7 @@ class MyStreamListener(tweepy.StreamListener):
                 for tweet in newTweets:
                     created_at = round(calendar.timegm(time.strptime(str(tweet.created_at), "%Y-%m-%d %H:%M:%S"))) * 1000
                     text = tweet.full_text
-                    sentiment_score = self.get_sentiment_score(text) 
+                    sentiment_score = sentiment.get_sentiment_score(text) 
                     followers = 0
 
                     self.push_to_db(h,created_at,text,sentiment_score,followers)
@@ -169,7 +165,7 @@ Influx.create_database(config['influx_db'])
 
 track = ['$TSLA','$AAPL','$AAL','$CHWY','$PTON','$CCL','$LUV','$UPS','$FDX','$JPM','$LOW','$DIS','$OSTK','DOW','NASDAQ','SP500']
 #track = ['$TSLA','$AAPL','DOW','NASDAQ','SP500']
-#track = ['TRUMP']
+#track = ['$TSLA']
 
 
 #PreLoad HistData
