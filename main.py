@@ -9,10 +9,9 @@ from price_forcast import prediction_model
 days = 30
 connect = Alpaca()
 tickers = ['APA']
-#tickers = connect.get_all_syms()
-histdata = connect.history(tickers,'day',str(days))
-
-print(prediction_model(histdata,days))
+all = connect.get_all_syms()
+#histdata = connect.history(tickers,'day',str(days))
+#print(prediction_model(histdata,days))
 
 #Get nasdaq Lists
 
@@ -20,12 +19,17 @@ print(prediction_model(histdata,days))
 
 #Volatility Data
 
-#Stock_Picker = connect.Stock_Picker(all,'day',7)
-
+Stock_Picker = connect.Stock_Picker(all,'day',7)
+#print(Stock_Picker)
 #for v in Stock_Picker:
-#    print(str(v).replace("]", "").replace("[", "").replace("'", ""))
+#   print(str(v).replace("]", "").replace("[", "").replace("'", ""))
+for Stock in Stock_Picker:
+    histdata = connect.history(Stock[0],'day',str(days))
+    #print(str(Stock).replace("]", "").replace("[", "").replace("'", ""))
+    #Ticker, AvgFlux, Vol, AvgLow, AvgHigh, PredictAccuracy, NextPrice, Trend
+    for p in prediction_model(histdata,days):
+        print(str(Stock).replace("]", "").replace("[", "").replace("'", ""),",",p['Acuracy'],",",p['Next Price'],",",p['Trend'])
 
-    
 #Avg High/Low num data. 
 
 #avg_high_7d = connect.Good_Buy_Price(['BFRA'],'day',5)
@@ -46,8 +50,6 @@ print(prediction_model(histdata,days))
 
 #avg_low_7d = connect.avgLow(nasdaq,'day','7')
 #print(len(avg_low_7d))
-
-
 
 
 

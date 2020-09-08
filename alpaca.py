@@ -268,8 +268,9 @@ class Alpaca:
                             changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
                     #Append only stocks which have min % in change and volume greate than
                     if round(statistics.mean(changes_in_percent),2) >= self.getConfig('Tune')['Stock_Picker_Min_Perc_Change'] and round(statistics.mean(normalizedVols),2) >= self.getConfig('Tune')['Stock_Picker_Min_Vol']:
-                        tweet_sent = self.get_tweet_sent(['$'+symbol],7)
-                        outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs,tweet_sent['$'+symbol]])
+                        #tweet_sent = self.get_tweet_sent(['$'+symbol],7)
+                        #outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs,tweet_sent['$'+symbol]])
+                        outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs])
 
         return(outdata)    
 
