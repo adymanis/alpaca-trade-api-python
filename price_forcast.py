@@ -6,16 +6,29 @@ from scipy import stats
 from alpaca import Alpaca
 # AR example
 from statsmodels.tsa.ar_model import AutoReg
+# MA example
+from statsmodels.tsa.arima_model import ARMA
 # import warnings filter
 from warnings import simplefilter
 # ignore all future warnings
 simplefilter(action='ignore', category=FutureWarning)
+from alpaca import Alpaca
 
+#Doing some funny math to use overall market sentiment as a value which I can skew predictions either + or - a precentage
+connect = Alpaca()
+Current_Market_Sentiment = connect.get_tweet_sent(['NASDAQ','SP500','DOW'],0)
+Current_Market_Sentiment_Value = sum(Current_Market_Sentiment.values())/10
+if Current_Market_Sentiment_Value > 0:
+    Current_Market_Sentiment_Value = 1 + Current_Market_Sentiment_Value
+else:
+    Current_Market_Sentiment_Value = 1 - abs(Current_Market_Sentiment_Value)
+
+print("Sentiment Skew:", Current_Market_Sentiment_Value )
 
 def prediction_model(histdata,days):
     slopedata = []
     output = []
-
+   
     for ticker in histdata:
         for d in histdata[ticker]:
             data = {'Ticker': ticker, 'Date': d.t, 'Price': d.c}
@@ -48,10 +61,16 @@ def prediction_model(histdata,days):
             # contrived dataset
             data = df['value']
             # fit model
-            model = AutoReg(data, lags=1)
-            model_fit = model.fit()
+            ARmodel = AutoReg(data, lags=1)
+            ARmodel_fit = ARmodel.fit()
             # make prediction
-            yhat = model_fit.predict(len(data), len(data))
+            ARyhat = ARmodel_fit.predict(len(data), len(data))
+
+
+            MAmodel = ARMA(data, order=(0, 1))
+            MAmodel_fit = MAmodel.fit(disp=False)
+            # make prediction
+            MAyhat = MAmodel_fit.predict(len(data), len(data))
 
 
             #Slope Trend
@@ -61,8 +80,9 @@ def prediction_model(histdata,days):
             else:
                 trend = "DOWN"
 
+
             ## To get coefficient of determination (r_squared) The Higher the % the more numbers fall within the line 
             #print(s, "Acuracy:", round(r_value**2*100,2),"%")
             #print(s, "Next Price:", yhat[days])
-            output.append({"Stock": s, "Acuracy": round(r_value**2*100,2), "Next Price": round(yhat[days],2), "Slope": round(slope, 2), "Trend": trend})
+            output.append({"Stock": s, "Acuracy": round(r_value**2*100,2), "AR Next Price": round(ARyhat[days]*Current_Market_Sentiment_Value,2), "MA Next Price": round(MAyhat[days]*Current_Market_Sentiment_Value,2), "Slope": round(slope, 2), "Trend": trend})
     return(output)

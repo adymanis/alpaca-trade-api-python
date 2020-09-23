@@ -86,8 +86,8 @@ class Alpaca:
 
         return(all_syms_nasdaq)
 
-    def lastquote(self,symbol):   
-        return(self.api.get_last_quote(symbol))
+    def lasttrade(self,symbol):   
+        return(self.api.get_last_trade(symbol))
 
     def history(self,symbols,timeframe,limit):
         #Create batches for api call of 100 max symbols API only allow ~100 symbols per request so I broke up the requests into batches 
@@ -267,10 +267,12 @@ class Alpaca:
                         if d.v in normalizedVols:
                             changes_in_percent.append(round(((d.h - d.l)/d.l) * 100,2))
                     #Append only stocks which have min % in change and volume greate than
-                    if round(statistics.mean(changes_in_percent),2) >= self.getConfig('Tune')['Stock_Picker_Min_Perc_Change'] and round(statistics.mean(normalizedVols),2) >= self.getConfig('Tune')['Stock_Picker_Min_Vol']:
-                        #tweet_sent = self.get_tweet_sent(['$'+symbol],7)
-                        #outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs,tweet_sent['$'+symbol]])
-                        outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs])
+
+                    if len(changes_in_percent) > 0 and len(normalizedVols) > 0:
+                        if round(statistics.mean(changes_in_percent),2) >= self.getConfig('Tune')['Stock_Picker_Min_Perc_Change'] and round(statistics.mean(normalizedVols),2) >= self.getConfig('Tune')['Stock_Picker_Min_Vol']:
+                            #tweet_sent = self.get_tweet_sent(['$'+symbol],7)
+                            #outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs,tweet_sent['$'+symbol]])
+                            outdata.append([symbol,round(statistics.mean(changes_in_percent),2),round(statistics.mean(normalizedVols),2),lowcalcs,highcalcs])
 
         return(outdata)    
 
@@ -286,6 +288,7 @@ class Alpaca:
         return(no_outliers)
 
     def get_tweet_sent(self,hashtag,time):
+        #Historical twitter sentiment for time frame
         sentiment = Sentiment()
         d = datetime.today() - timedelta(days=time)
 
@@ -311,7 +314,7 @@ class Alpaca:
                                         tweet_mode="extended",languages=["en"])
 
                 if not newTweets:
-                    print("Aint no tweet anymore....")
+                    #print("Aint no tweet anymore....")
                     break
 
                 for tweet in newTweets:
@@ -319,15 +322,16 @@ class Alpaca:
                     text = tweet.full_text
                     sentiment_score = sentiment.get_sentiment_score(text) 
                     followers = 0
-                    if created_at >= d:
+                    #Remove scores of zero and only add for date
+                    if created_at >= d and sentiment_score != 0:
                         sent_total.append(sentiment_score)
                         
 
                 tweetCount += len(newTweets)
-                print(h, tweetCount)
+                #print(h, tweetCount)
                 maxId = newTweets[-1].id
-
-            data[h] = round(statistics.mean(sent_total),3)
+            #This seems to be more acurate with median than mean
+            data[h] = round(statistics.median(sent_total),3)
                 #print(maxId)
         return(data)
  

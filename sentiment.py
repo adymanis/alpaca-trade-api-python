@@ -5,7 +5,7 @@ import nltk
 class Sentiment:
 
     def __init__(self):   
-        nltk.download('vader_lexicon')
+        nltk.download('vader_lexicon', quiet=True)
         return
 
     def get_sentiment_score(self,sentence):      
